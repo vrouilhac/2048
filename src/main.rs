@@ -1,4 +1,5 @@
 use rand::Rng;
+use std::fmt;
 
 // TODO: add the scrore computation
 // TODO: add a screen to replay
@@ -7,10 +8,32 @@ use rand::Rng;
 // TIPS: start from opposite played side and try to get the cells to move block by block to that
 // side
 
+#[derive(Debug)]
 struct CellPos(usize, usize);
+
+#[derive(Debug, Copy)]
 enum CellValue {
     Empty,
     Value(i32),
+}
+
+impl Clone for CellValue {
+    fn clone(&self) -> Self {
+        match &self {
+            CellValue::Empty => CellValue::Empty,
+            CellValue::Value(val) => CellValue::Value(*val),
+        }
+    }
+}
+
+impl fmt::Display for CellValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let CellValue::Value(value) = self {
+            write!(f, "{}", value)
+        } else {
+            write!(f, "-1")
+        }
+    }
 }
 
 enum Move {
@@ -27,14 +50,14 @@ impl Move {
 }
 
 struct Board {
-    grid: [[i32; 4]; 4],
+    grid: [[CellValue; 4]; 4],
     score: u32,
 }
 
 impl Board {
     fn new() -> Board {
         Board {
-            grid: [[-1; 4]; 4],
+            grid: [[CellValue::Empty; 4]; 4],
             score: 0,
         }
     }
@@ -53,8 +76,8 @@ impl Board {
             print!("\n");
 
             for col in rows {
-                if *col > 0 {
-                    print!("|{:>5}|", col);
+                if let CellValue::Value(value) = col {
+                    print!("|{:>5}|", value);
                 } else {
                     print!("|{:>5}|", "");
                 }
@@ -75,7 +98,7 @@ impl Board {
 
         for rows in self.grid.iter() {
             for col in rows {
-                if *col == -1 {
+                if let CellValue::Empty = col {
                     is_end = false;
                     break;
                 }
@@ -90,7 +113,7 @@ impl Board {
 
         for (row_index, row) in self.grid.iter().enumerate() {
             for (col_index, col) in row.iter().enumerate() {
-                if *col == -1 {
+                if let CellValue::Empty = col {
                     valid_cells.push((row_index, col_index));
                 }
             }
@@ -100,7 +123,7 @@ impl Board {
     }
 
     pub fn update_cell(&mut self, x: usize, y: usize, value: i32) {
-        self.grid[x][y] = value;
+        self.grid[x][y] = CellValue::Value(value);
     }
 
     pub fn get_random_valid_cell(&self) -> (usize, usize) {
@@ -114,8 +137,8 @@ impl Board {
     pub fn generate_new_cell(&mut self) {
         let (x, y) = self.get_random_valid_cell();
         let mut rng = rand::thread_rng();
-        let value = rng.gen_range(1..=2);
-        let value = value * 2;
+        let mut value = rng.gen_range(1..=100);
+        let value = if value > 90 { 4 } else { 2 };
         self.update_cell(x, y, value);
     }
 
@@ -128,13 +151,15 @@ impl Board {
         self.update_cell(x, y, value);
     }
 
-    pub fn play(&mut self, player_move: Move) {
-        match player_move {
+    pub fn play(&mut self, player_move: Move) -> bool {
+        let has_moved = match player_move {
             Move::TOP => self.play_top(),
             Move::LEFT => self.play_left(),
             Move::RIGHT => self.play_right(),
             Move::BOTTOM => self.play_bottom(),
-        }
+        };
+
+        has_moved
     }
     //    y(0) y(1) y(2) y(3)
     // x(0) 0    0    0    0
@@ -142,139 +167,184 @@ impl Board {
     // x(2) 0    2    0    0
     // x(3) 0    0    0    0
 
-    pub fn play_top(&mut self) {
+    pub fn play_top(&mut self) -> bool {
+        let mut has_moved = false;
+
         for x in 0..self.grid.len() {
             for y in 0..self.grid[x].len() {
-                if self.grid[x][y] == -1 {
+                if let CellValue::Empty = self.grid[x][y] {
                     continue;
                 }
 
                 let mut next_row = x;
-                let mut next_value = self.grid[x][y];
+                let mut next_value = if let CellValue::Value(value) = self.grid[x][y] {
+                    value
+                } else {
+                    -1
+                };
                 let mut merged = false;
 
                 for i in 0..x {
-                    if self.grid[x - i - 1][y] == -1 {
+                    if let CellValue::Empty = self.grid[x - i - 1][y] {
                         next_row = x - i - 1;
                     }
 
-                    if self.grid[x - i - 1][y] != -1 && self.grid[x - i - 1][y] == self.grid[x][y] {
-                        next_row = x - i - 1;
-                        next_value = next_value + self.grid[next_row][y];
-                        merged = true;
-                        break;
+                    if let CellValue::Value(value) = self.grid[x - i - 1][y] {
+                        if let CellValue::Value(val) = self.grid[x][y] {
+                            if value == val {
+                                next_row = x - i - 1;
+                                next_value = next_value + value;
+                                merged = true;
+                                break;
+                            }
+                        }
                     }
 
-                    if self.grid[x - i - 1][y] != -1 {
+                    if let CellValue::Value(_) = self.grid[x - i - 1][y] {
                         break;
                     }
                 }
 
-                // println!(
-                //     "prev({x}, {y}) / next({next_row}, {y}): ({}/{next_value})",
-                //     self.grid[x][y]
-                // );
-
                 if x != next_row {
-                    self.grid[next_row][y] = next_value;
-                    self.grid[x][y] = -1;
+                    self.grid[next_row][y] = CellValue::Value(next_value);
+                    self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+                    has_moved = true;
                 }
             }
         }
+
+        has_moved
     }
 
-    pub fn play_right(&mut self) {
+    pub fn play_right(&mut self) -> bool {
+        let mut has_moved = false;
+
         for x in (0..self.grid.len()).rev() {
             for y in (0..self.grid[x].len()).rev() {
                 // Cell is empty so nothing to do
-                if self.grid[x][y] == -1 {
+                if let CellValue::Empty = self.grid[x][y] {
                     continue;
                 }
 
                 let mut next_col = y;
-                let mut next_value = self.grid[x][y];
+                let mut next_value = if let CellValue::Value(val) = self.grid[x][y] {
+                    val
+                } else {
+                    -1
+                };
                 let mut merged = false;
 
                 for i in y..self.grid[x].len() {
-                    if self.grid[x][i] == -1 {
-                        next_col = i;
+                    if y == i {
+                        continue;
                     }
 
-                    if self.grid[x][i] != -1 && self.grid[x][i] == self.grid[x][y] {
+                    if let CellValue::Empty = self.grid[x][i] {
                         next_col = i;
-                        next_value = next_value + self.grid[x][i];
-                        merged = true;
-                        break;
+                    } else {
+                        println!("y{i}");
                     }
 
-                    if self.grid[x][i] != -1 {
+                    if let CellValue::Value(value) = self.grid[x][i] {
+                        if let CellValue::Value(val) = self.grid[x][y] {
+                            if value == val {
+                                next_col = i;
+                                next_value = next_value + val;
+                                merged = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if let CellValue::Value(_) = self.grid[x][i] {
                         break;
                     }
                 }
 
                 if y != next_col {
-                    self.grid[x][next_col] = next_value;
-                    self.grid[x][y] = -1;
+                    self.grid[x][next_col] = CellValue::Value(next_value);
+                    self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+                    has_moved = true;
                 }
             }
         }
+
+        has_moved
     }
 
-    pub fn play_left(&mut self) {
+    pub fn play_left(&mut self) -> bool {
+        let mut has_moved = false;
+
         for x in 0..self.grid.len() {
             for y in 0..self.grid[x].len() {
-                if self.grid[x][y] == -1 {
+                if let CellValue::Empty = self.grid[x][y] {
                     continue;
                 }
 
                 let mut next_col = y;
-                let mut next_value = self.grid[x][y];
+                let mut next_value = if let CellValue::Value(value) = self.grid[x][y] {
+                    value
+                } else {
+                    -1
+                };
                 let mut merged = false;
 
                 for i in 0..y {
-                    if self.grid[x][y - i - 1] == -1 {
+                    if let CellValue::Empty = self.grid[x][y - i - 1] {
                         next_col = y - i - 1;
                     }
 
-                    if self.grid[x][y - i - 1] != -1 && self.grid[x][y - i - 1] == self.grid[x][y] {
-                        next_col = y - i - 1;
-                        next_value = next_value + self.grid[x][next_col];
-                        merged = true;
-                        break;
+                    if let CellValue::Value(value) = self.grid[x][y - i - 1] {
+                        if let CellValue::Value(val) = self.grid[x][y] {
+                            if value == val {
+                                next_col = y - i - 1;
+                                next_value = next_value + value;
+                                merged = true;
+                                break;
+                            }
+                        }
                     }
 
-                    if self.grid[x][y - i - 1] != -1 {
+                    if let CellValue::Value(_) = self.grid[x][y - i - 1] {
                         break;
                     }
                 }
 
                 if y != next_col {
-                    self.grid[x][next_col] = next_value;
-                    self.grid[x][y] = -1;
+                    self.grid[x][next_col] = CellValue::Value(next_value);
+                    self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+                    has_moved = true;
                 }
             }
         }
+
+        has_moved
     }
 
-    pub fn play_bottom(&mut self) {
+    pub fn play_bottom(&mut self) -> bool {
+        let mut has_moved = false;
+
         for x in (0..self.grid.len()).rev() {
             for y in (0..self.grid[x].len()).rev() {
-                println!("({x}, {y}): [{}]", self.grid[x][y]);
-                if self.grid[x][y] == -1 {
+                if let CellValue::Empty = self.grid[x][y] {
                     continue;
                 }
 
                 let mut next_row = x;
-                let mut next_value = self.grid[x][y];
+                let mut next_value = if let CellValue::Value(value) = self.grid[x][y] {
+                    value
+                } else {
+                    -1
+                };
                 let mut merged = false;
 
                 if x == self.grid.len() - 1 {
@@ -286,31 +356,39 @@ impl Board {
                         continue;
                     }
 
-                    if self.grid[i][y] == -1 {
+                    if let CellValue::Empty = self.grid[i][y] {
                         next_row = i;
                     }
 
-                    if self.grid[i][y] != -1 && self.grid[i][y] == self.grid[x][y] {
-                        next_row = i;
-                        next_value = next_value + self.grid[next_row][y];
-                        merged = true;
-                        break;
+                    if let CellValue::Value(value) = self.grid[i][y] {
+                        if let CellValue::Value(val) = self.grid[x][y] {
+                            if value == val {
+                                next_row = i;
+                                next_value = next_value + value;
+                                merged = true;
+                                break;
+                            }
+                        }
                     }
 
-                    if self.grid[i][y] != -1 {
+                    if let CellValue::Value(_) = self.grid[i][y] {
                         break;
                     }
                 }
 
                 if x != next_row {
-                    self.grid[next_row][y] = next_value;
-                    self.grid[x][y] = -1;
+                    self.grid[next_row][y] = CellValue::Value(next_value);
+                    self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+
+                    has_moved = true;
                 }
             }
         }
+
+        has_moved
     }
 }
 
@@ -322,47 +400,56 @@ fn main() {
     }
 
     board.init();
+    board.generate_new_cell();
 
     loop {
-        board.generate_new_cell();
         board.display();
 
         let input = ask_input();
         println!("input: {input}");
 
-        board.play(input_to_enum(input.as_str()));
+        if let Some(value) = input_to_enum(input.as_str()) {
+            let has_moved = board.play(value);
 
-        if board.check_end() {
-            break;
+            if board.check_end() {
+                break;
+            }
+
+            if has_moved {
+                board.generate_new_cell();
+            }
         }
     }
 
     println!("Game end!");
 }
 
-fn input_to_enum(input: &str) -> Move {
+fn input_to_enum(input: &str) -> Option<Move> {
     match input {
-        "h" => Move::LEFT,
-        "j" => Move::BOTTOM,
-        "k" => Move::TOP,
-        "l" => Move::RIGHT,
-        _ => panic!("Something's wrong"),
+        "h" => Some(Move::LEFT),
+        "j" => Some(Move::BOTTOM),
+        "k" => Some(Move::TOP),
+        "l" => Some(Move::RIGHT),
+        _ => None,
     }
 }
 
 fn ask_input() -> String {
     let mut input = String::new();
     println!("Use H / J / K / L");
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("can not read user input");
 
-    loop {
-        std::io::stdin()
-            .read_line(&mut input)
-            .expect("can not read user input");
-        if input.trim() == "j" || input.trim() == "h" || input.trim() == "k" || input.trim() == "l"
-        {
-            break;
-        }
-    }
+    // loop {
+    //     if input.trim() == "j" || input.trim() == "h" || input.trim() == "k" || input.trim() == "l"
+    //     {
+    //         break;
+    //     } else {
+    //         input = String::from("");
+    //     }
+    // }
+
     String::from(input.trim())
 }
 

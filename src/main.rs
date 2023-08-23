@@ -3,10 +3,12 @@ use std::fmt;
 
 // TODO: add a screen to replay
 // TODO: add a leaderboad and a way to save score and running game to keep where we're at
-// TODO: if a cell has been previously merged it should not get merged during the same round
 
-// TIPS: start from opposite played side and try to get the cells to move block by block to that
-// side
+// Display
+// Cell
+// Board
+// Game
+// Menu
 
 struct Cell {
     pos: CellPos,
@@ -442,7 +444,7 @@ impl Board {
     }
 }
 
-fn main() {
+fn play() {
     let mut board = Board::new();
 
     if board.check_end() {
@@ -455,8 +457,8 @@ fn main() {
     loop {
         board.display();
 
+        println!("Use H / J / K / L");
         let input = ask_input();
-        println!("input: {input}");
 
         if let Some(value) = input_to_enum(input.as_str()) {
             let has_moved = board.play(value);
@@ -471,7 +473,40 @@ fn main() {
         }
     }
 
-    println!("Game end!");
+    println!("You lost, your score is {}", board.score);
+    println!("Press 'Enter' to return to menu");
+    ask_input();
+}
+
+fn show_credits() {
+    clear();
+    println!("\n\n\tThis game has been made with Rust as a learning project to get used to Rust.");
+    println!("\tIt is also the first time I created the 2048 game which has been fun to make,");
+    println!("\twith few errors in the rules I had to correct.\n");
+    println!("\tMade with <3 and curiosity by Vincent Rouilhac (@vrouilhac)");
+    println!("\n\nPress 'Enter' to return to the menu");
+    ask_input();
+}
+
+fn main() {
+    loop {
+        clear();
+        println!("\n\t\t\tRust 2048\n");
+        println!("\t- 1) Play");
+        println!("\t- 2) Credits");
+        println!("\t- 3) Quit");
+        let input = ask_input();
+
+        match input.as_str() {
+            "1" => play(),
+            "2" => show_credits(),
+            "3" => {
+                println!("See you soon! ;)");
+                break;
+            }
+            _ => continue,
+        }
+    }
 }
 
 fn input_to_enum(input: &str) -> Option<Move> {
@@ -486,7 +521,6 @@ fn input_to_enum(input: &str) -> Option<Move> {
 
 fn ask_input() -> String {
     let mut input = String::new();
-    println!("Use H / J / K / L");
     std::io::stdin()
         .read_line(&mut input)
         .expect("can not read user input");

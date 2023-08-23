@@ -1,12 +1,17 @@
 use rand::Rng;
 use std::fmt;
 
-// TODO: add the scrore computation
 // TODO: add a screen to replay
 // TODO: add a leaderboad and a way to save score and running game to keep where we're at
+// TODO: if a cell has been previously merged it should not get merged during the same round
 
 // TIPS: start from opposite played side and try to get the cells to move block by block to that
 // side
+
+struct Cell {
+    pos: CellPos,
+    value: CellValue,
+}
 
 #[derive(Debug)]
 struct CellPos(usize, usize);
@@ -169,6 +174,7 @@ impl Board {
 
     pub fn play_top(&mut self) -> bool {
         let mut has_moved = false;
+        let mut played_cell: Vec<CellPos> = vec![];
 
         for x in 0..self.grid.len() {
             for y in 0..self.grid[x].len() {
@@ -205,12 +211,22 @@ impl Board {
                     }
                 }
 
-                if x != next_row {
+                let already_played = played_cell.iter().any(|cell| {
+                    if cell.0 == next_row && cell.1 == y {
+                        return true;
+                    }
+
+                    false
+                });
+
+                if x != next_row && !already_played {
                     self.grid[next_row][y] = CellValue::Value(next_value);
                     self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+
+                    played_cell.push(CellPos(next_row, y));
                     has_moved = true;
                 }
             }
@@ -221,6 +237,7 @@ impl Board {
 
     pub fn play_right(&mut self) -> bool {
         let mut has_moved = false;
+        let mut played_cell: Vec<CellPos> = vec![];
 
         for x in (0..self.grid.len()).rev() {
             for y in (0..self.grid[x].len()).rev() {
@@ -264,12 +281,22 @@ impl Board {
                     }
                 }
 
-                if y != next_col {
+                let already_played = played_cell.iter().any(|cell| {
+                    if cell.0 == x && cell.1 == next_col {
+                        return true;
+                    }
+
+                    false
+                });
+
+                if y != next_col && !already_played {
                     self.grid[x][next_col] = CellValue::Value(next_value);
                     self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+
+                    played_cell.push(CellPos(x, next_col));
                     has_moved = true;
                 }
             }
@@ -280,6 +307,7 @@ impl Board {
 
     pub fn play_left(&mut self) -> bool {
         let mut has_moved = false;
+        let mut played_cell: Vec<CellPos> = vec![];
 
         for x in 0..self.grid.len() {
             for y in 0..self.grid[x].len() {
@@ -316,12 +344,22 @@ impl Board {
                     }
                 }
 
-                if y != next_col {
+                let already_played = played_cell.iter().any(|cell| {
+                    if cell.0 == x && cell.1 == next_col {
+                        return true;
+                    }
+
+                    false
+                });
+
+                if y != next_col && !already_played {
                     self.grid[x][next_col] = CellValue::Value(next_value);
                     self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+
+                    played_cell.push(CellPos(x, next_col));
                     has_moved = true;
                 }
             }
@@ -332,9 +370,12 @@ impl Board {
 
     pub fn play_bottom(&mut self) -> bool {
         let mut has_moved = false;
+        let mut played_cell: Vec<CellPos> = vec![];
 
         for x in (0..self.grid.len()).rev() {
             for y in (0..self.grid[x].len()).rev() {
+                // TODO: add cells that moved so if a cell move to another place, when we come to
+                // that place there's no other move and merge
                 if let CellValue::Empty = self.grid[x][y] {
                     continue;
                 }
@@ -376,12 +417,21 @@ impl Board {
                     }
                 }
 
-                if x != next_row {
+                let already_played = played_cell.iter().any(|cell| {
+                    if cell.0 == next_row && cell.1 == y {
+                        return true;
+                    }
+
+                    false
+                });
+
+                if x != next_row && !already_played {
                     self.grid[next_row][y] = CellValue::Value(next_value);
                     self.grid[x][y] = CellValue::Empty;
                     if merged {
                         self.score += next_value as u32;
                     }
+                    played_cell.push(CellPos(next_row, y));
 
                     has_moved = true;
                 }
@@ -440,15 +490,6 @@ fn ask_input() -> String {
     std::io::stdin()
         .read_line(&mut input)
         .expect("can not read user input");
-
-    // loop {
-    //     if input.trim() == "j" || input.trim() == "h" || input.trim() == "k" || input.trim() == "l"
-    //     {
-    //         break;
-    //     } else {
-    //         input = String::from("");
-    //     }
-    // }
 
     String::from(input.trim())
 }

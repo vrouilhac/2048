@@ -59,6 +59,7 @@ impl Move {
 struct Board {
     grid: [[CellValue; 4]; 4],
     score: u32,
+    new_cell: Option<CellPos>,
 }
 
 impl Board {
@@ -66,6 +67,7 @@ impl Board {
         Board {
             grid: [[CellValue::Empty; 4]; 4],
             score: 0,
+            new_cell: None,
         }
     }
 
@@ -131,6 +133,7 @@ impl Board {
 
     pub fn update_cell(&mut self, x: usize, y: usize, value: i32) {
         self.grid[x][y] = CellValue::Value(value);
+        self.new_cell = Some(CellPos(x, y));
     }
 
     pub fn get_random_valid_cell(&self) -> (usize, usize) {
@@ -144,7 +147,7 @@ impl Board {
     pub fn generate_new_cell(&mut self) {
         let (x, y) = self.get_random_valid_cell();
         let mut rng = rand::thread_rng();
-        let mut value = rng.gen_range(1..=100);
+        let value = rng.gen_range(1..=100);
         let value = if value > 90 { 4 } else { 2 };
         self.update_cell(x, y, value);
     }
